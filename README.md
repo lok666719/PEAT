@@ -1,5 +1,15 @@
 # Cross-Text Transferable Adversarial Attacks on Referring Expression Segmentation via Proxy Embedding Guidance
 
+## Version
+
+This source tree is the `v1.1.1` reproducibility revision prepared for the
+third-round manuscript. It builds on the publicly archived `v1.1.0`
+release (commit `c4efc6c`).
+
+The `v1.1.0` version-specific archive is
+https://doi.org/10.5281/zenodo.21930248. The concept DOI
+https://doi.org/10.5281/zenodo.17445787 identifies all archived versions.
+
 ## Description
 We propose **Proxy-Embedding as an Adversarial Teacher (PEAT)** — an embedding-guided bidirectional adversarial attack framework for Referring Expression Segmentation (RES) models. The method crafts cross-text transferable adversarial examples by leveraging proxy embeddings as an adversarial teacher. 
 
@@ -16,14 +26,34 @@ repository:
 - **RefCOCO / RefCOCO+ / RefCOCOg**  
   https://github.com/hustvl/evf-sam
 
-The dataset splitting procedure used in our experiments is implemented
-in:
+The reproducible dataset splitting utility is
+[`prepare_splits.py`](prepare_splits.py).
 
-[`utils/splite_dataset_new_random.py`](https://github.com/lok666719/PEAT/blob/main/utils/splite_dataset_new_random.py)
+`split_manifest.json` records the sampling rules, random seeds, image
+budget, and optimization/evaluation-expression definitions. The original
+datasets and pretrained weights are not redistributed. Dataset-specific
+image IDs are therefore reconstructed from the official annotations with
+the documented seeds and split settings rather than distributed as
+third-party data.
 
-This script is used to generate the image and referring-expression
-splits adopted in the experiments. The corresponding split information
-is also provided in `split_manifest.json` for reproducibility.
+For example, generate the RefCOCO split for seed 42:
+
+```bash
+python prepare_splits.py \
+  --data-root path/to/refer_seg \
+  --dataset refcoco \
+  --split-by unc \
+  --split testA \
+  --seed 42 \
+  --num-images 750 \
+  --output-dir splits/refcoco/seed_42
+```
+
+The command writes `train.p`, `test.p`, and a seed-specific
+`split-manifest.json` containing the sampled image IDs, annotation IDs,
+optimization expressions, and evaluation expressions.
+If the official `refer.py` module is not already on `PYTHONPATH`, provide
+its directory with `--refer-path`.
 
 > **Note:** Some datasets may require permission, registration, or
 > manual download from their original providers. We do not redistribute
@@ -37,6 +67,11 @@ is also provided in `split_manifest.json` for reproducibility.
 PEAT is evaluated on five RES model configurations: **EVF-SAM**, 
 **EVF-SAM2**, **DMMI with a ResNet backbone**, **DMMI with a Swin 
 Transformer backbone**, and **LAVT**.
+
+The command-line runner `run_peat.py` in this repository is provided for
+the EVF-SAM implementation. The other model configurations require the
+corresponding official model implementations and checkpoints listed
+below. Model weights are not redistributed.
 
 We do not redistribute pretrained model weights in this repository. 
 Please obtain the official model implementations and pretrained 
@@ -79,7 +114,7 @@ robustness in Referring Expression Segmentation (RES).
 
 The released protocol includes:
 
-- fixed image and referring-expression splits;
+- deterministic image-sampling and expression-selection rules;
 - strictly disjoint optimization and evaluation expressions;
 - Single-Text and Multi-Text evaluation settings;
 - baseline attack implementations;
@@ -87,9 +122,13 @@ The released protocol includes:
 - scripts for adversarial-example generation and evaluation; and
 - reproducibility information for the experiments reported in the paper.
 
-The exact dataset splits used in the paper are provided in
+The sampling rules used in the paper are provided in
 `split_manifest.json`, and the splitting procedure is implemented in
-[`utils/splite_dataset_new_random.py`](utils/splite_dataset_new_random.py).
+[`prepare_splits.py`](prepare_splits.py).
+Exact image and expression identifiers are not bundled because the
+original dataset images and annotations are not redistributed. They can
+be reconstructed from the official annotations using the released seed,
+split, and sampling parameters.
 
 The protocol is intended to provide a common and reusable basis for
 evaluating whether adversarial images generated using a limited set of
@@ -97,36 +136,24 @@ referring expressions remain effective under strictly unseen textual
 inputs.
 
 ## Requirement
-Recommended: Linux, NVIDIA GPU, CUDA 11.7, conda/python 3.9.  
-Main dependencies (tested):
-python==3.9\
-torch==2.0.1+cu117\
-torchvision==0.15.2+cu117\
-torchaudio==2.0.2\
-transformers==4.45.2\
-accelerate==1.0.1\
-deepspeed==0.15.3\
-bitsandbytes==0.41.1\
-timm==0.4.12\
-opencv-python==4.10.0.84\
-pillow==9.4.0\
-numpy==1.23.2\
-scipy==1.11.2\
-matplotlib==3.9.2\
-pandas==2.2.3\
-safetensors\
-pycocotools\
-einops\
-ftfy\
-tqdm
+
+Recommended environment: Linux, NVIDIA A100 GPU, CUDA 11.7, and Python
+3.9. Install the tested dependencies with:
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cu117 \
+  torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+pip install -r requirements.txt
+```
 
 ## Troubleshooting
 
 - **CUDA or PyTorch version mismatch:** Please ensure that PyTorch is
   installed with CUDA 11.7 as specified in the environment file.
 
-- **Checkpoint not found:** Verify that the pretrained model checkpoint
-  path supplied to `--ckpt` matches the expected directory structure.
+- **Checkpoint not found:** Verify that the directory supplied to
+  `--checkpoint` contains the EVF-SAM configuration, tokenizer, and model
+  weights.
 
 - **Dataset path error:** Check that the RefCOCO/RefCOCO+/RefCOCOg
   annotations and images follow the directory structure described in
@@ -136,16 +163,83 @@ tqdm
   ensure sufficient GPU memory is available.
 
 - **Different evaluation results:** Verify that the provided fixed split
-  file and the same random seed are being used.
-
-## Implementation
-Just download this repository and open it using PyCharm (or your preferred IDE).  
+  parameters, official dataset split, and random seed are being used.
 
 ## Attack and Evaluate
 
-Generate adversarial examples and evaluate:
+The task source can be a JSON manifest or an optimization split pickle
+following the REFER structure. A JSON manifest has the form:
+
+```json
+[
+  {
+    "image_id": 123,
+    "image": "images/COCO_train2014_000000000123.jpg",
+    "prompts": ["the person on the left", "the child in a red coat"]
+  }
+]
+```
+
+For the generated optimization split, replace `--task-json tasks.json`
+with `--split-pickle splits/refcoco/seed_42/train.p`.
+
+Generate adversarial images with PEAT:
 
 ```bash
-python adv_eval.py --ckpt checkpoints/your_model.pth --data-root path/to/refcoco/ --output results/adv_examples/
-python adv_eval_test.py --ckpt checkpoints/your_model.pth --data-root path/to/refcoco/ --output results/eval/
+python run_peat.py \
+  --checkpoint checkpoints/evf_sam \
+  --task-json tasks.json \
+  --image-root path/to/refcoco \
+  --setting multi-text \
+  --output-dir results/peat
 ```
+
+Run a protocol-matched image-only baseline with the same task manifest:
+
+```bash
+python run_peat.py \
+  --checkpoint checkpoints/evf_sam \
+  --task-json tasks.json \
+  --setting multi-text \
+  --method multi-text \
+  --output-dir results/multi_text
+```
+
+Evaluate the generated adversarial images with the held-out expressions:
+
+```bash
+python evaluate_peat.py \
+  --checkpoint checkpoints/evf_sam \
+  --test-pickle splits/refcoco/seed_42/test.p \
+  --adversarial-dir results/peat \
+  --output-json results/peat/metrics.json
+```
+
+The default attack configuration is 100 iterations, epsilon
+`16/255`, step size `2/255`, proxy-embedding budget `0.2`, proxy step
+size `0.01`, and proxy-update interval `10`, matching the manuscript.
+
+## Runtime and GPU Memory
+
+`run_peat.py` records per-image wall-clock generation time and PyTorch
+peak allocated/reserved GPU memory. The aggregate report is written to
+`efficiency.json` in the output directory:
+
+```bash
+python run_peat.py \
+  --checkpoint checkpoints/evf_sam \
+  --task-json tasks.json \
+  --image-root path/to/refcoco \
+  --method peat \
+  --output-dir results/efficiency \
+  --efficiency-report efficiency.json
+```
+
+Timing excludes dataset loading and model initialization and includes
+one complete adversarial-image generation call. Memory is reported after
+model loading as the maximum CUDA allocation observed during the call.
+
+The original `adv_eval.py`, `adv_eval_test.py`, and
+`utils/splite_dataset_new_random.py` are retained as legacy experiment
+scripts. The commands documented above use the portable entry points
+`prepare_splits.py`, `run_peat.py`, and `evaluate_peat.py`.

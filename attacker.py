@@ -92,7 +92,8 @@ class evf_sam_attacker(EvfSamModel):
         self.adv_alpha = 2
         self.adv_alpha_text = 0.01
         self.adv_alpha_image_evf = 2/255
-        self.adv_iters = 50
+        self.adv_iters = 100
+        self.proxy_update_interval = 10
         self.select_feature_layers = [4, 5, 6, 7]
         self.pixel_mean = torch.Tensor([123.675, 116.28, 103.53])
         self.pixel_std = torch.Tensor([58.395, 57.12, 57.375])
@@ -1779,7 +1780,7 @@ class evf_sam_attacker(EvfSamModel):
             loss = torch.nn.MSELoss()(low_res_masks, target_low_res_masks)
             loss_list.append(loss.detach().item())
             iters = i + 1
-            if i % 15 == 0:
+            if i % self.proxy_update_interval == 0:
             # if iters % 5 == 0 and iters >= 40 and iters < 95:
                 grad = torch.autograd.grad(loss, inputs=[images, feat], retain_graph=False, create_graph=False)
                 image_grad = grad[0]

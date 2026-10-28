@@ -1,5 +1,5 @@
 {
-  "datasets": ["refcoco", "refcocoplus", "refcocog"],
+  "datasets": ["refcoco", "refcoco+", "refcocog"],
   "seeds": [42, 211, 3407, 5325],
   "num_images_per_seed": 750,
   "settings": ["single_text", "multi_text"],
@@ -7,5 +7,8 @@
   "multi_text_rule": "the first expression of each annotated object",
   "evaluation_rule": "all remaining expressions of the corresponding objects",
   "shared_across_models": true,
-  "shared_across_methods": true
+  "shared_across_methods": true,
+  "generator": "prepare_splits.py",
+  "dataset_parameters": ["dataset", "split_by", "split", "seed"],
+  "note": "This file defines the protocol. Running prepare_splits.py writes the sampled IDs and expression-level split manifest."
 }
